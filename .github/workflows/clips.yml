@@ -1,0 +1,46 @@
+name: Kick clip robot
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: clip-robot
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ffmpeg and fonts
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Install Python packages
+        run: pip install -r requirements.txt
+
+      - name: Run the clip robot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          KICK_CHANNEL: peller
+          CREDIT_NAME: Peller
+        run: python clipbot.py
+
+      - name: Remember which clips were used
+        if: always()
+        run: |
+          git config user.name "clip-robot"
+          git config user.email "clip-robot@users.noreply.github.com"
+          git add seen.json || true
+          git diff --cached --quiet || (git commit -m "update used clips" && git push)
