@@ -34,7 +34,16 @@ MAX_PER_RUN = int(os.environ.get("MAX_PER_RUN", "2"))    # videos per run
 MIN_SECONDS = int(os.environ.get("MIN_SECONDS", "12"))   # skip tiny clips
 MAX_AGE_HOURS = int(os.environ.get("MAX_AGE_HOURS", "48"))
 CAPTIONS = os.environ.get("CAPTIONS", "1") == "1"
-WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "base")
+WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")   # base < small < medium
+WHISPER_LANGUAGE = os.environ.get("WHISPER_LANGUAGE", "en")  # "" = auto-detect
+# a hint that makes Whisper expect Nigerian Pidgin words instead of guessing wrong ones
+WHISPER_PROMPT = os.environ.get("WHISPER_PROMPT", (
+    "Nigerian Pidgin and Nigerian English streamer. Words: abeg, wahala, oga, "
+    "na so, wetin, dey, no be, I no know, how far, e don do, sha, abi, chai, "
+    "omo, shey, biko, Peller, Javis, Kick, TikTok, Lagos."))
+CAPTION_WORDS = int(os.environ.get("CAPTION_WORDS", "3"))     # words on screen at once
+CAPTION_SIZE = int(os.environ.get("CAPTION_SIZE", "92"))      # text height in pixels
+CAPTION_MARGIN = int(os.environ.get("CAPTION_MARGIN", "420")) # pixels up from the bottom
 DRY_RUN = os.environ.get("DRY_RUN", "0") == "1"          # build but don't send
 STATE_FILE = Path(os.environ.get("STATE_FILE", "seen.json"))
 QUEUE_FILE = Path(os.environ.get("QUEUE_FILE", "queue.json"))
@@ -147,25 +156,87 @@ def srt_time(t):
     return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
 
-def transcribe(video_path, srt_path):
-    """Make an .srt with Whisper. Returns True on success, False to skip captions."""
+def ass_time(t):
+    cs = int(round(max(t, 0) * 100))
+    h, cs = divmod(cs, 360000)
+    m, cs = divmod(cs, 6000)
+    s, cs = divmod(cs, 100)
+    return f"{h}:{m:02}:{s:02}.{cs:02}"
+
+
+ASS_HEADER = """[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,{size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,1,0,0,0,100,100,0,0,1,{outline},3,2,60,60,{margin},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+
+
+def build_ass(words, ass_path):
+    """words = [(start, end, text), ...]. Writes pop-style captions: a few words
+    at a time, big bold uppercase, the word being spoken in gold."""
+    if not words:
+        return False
+    # split into chunks of CAPTION_WORDS, and break on long pauses
+    chunks, cur = [], []
+    for w in words:
+        if cur and (len(cur) >= CAPTION_WORDS or w[0] - cur[-1][1] > 0.8):
+            chunks.append(cur)
+            cur = []
+        cur.append(w)
+    if cur:
+        chunks.append(cur)
+
+    events = []
+    for ci, chunk in enumerate(chunks):
+        chunk_end = chunks[ci + 1][0][0] if ci + 1 < len(chunks) else chunk[-1][1] + 0.3
+        chunk_end = min(chunk_end, chunk[-1][1] + 0.6)  # do not hang on screen in silence
+        for wi, (start, end, _) in enumerate(chunk):
+            nxt = chunk[wi + 1][0] if wi + 1 < len(chunk) else chunk_end
+            nxt = max(nxt, start + 0.08)
+            parts = []
+            for j, (_, _, text) in enumerate(chunk):
+                t = text.upper().replace("{", "(").replace("}", ")")
+                parts.append(("{\\c&H0000D7FF&}" + t + "{\\c&H00FFFFFF&}") if j == wi else t)
+            events.append(f"Dialogue: 0,{ass_time(start)},{ass_time(nxt)},Default,,0,0,0,,"
+                          + " ".join(parts))
+
+    header = ASS_HEADER.format(size=CAPTION_SIZE, outline=max(4, CAPTION_SIZE // 14),
+                               margin=CAPTION_MARGIN)
+    Path(ass_path).write_text(header + "\n".join(events) + "\n", encoding="utf-8")
+    return True
+
+
+def transcribe(video_path, ass_path):
+    """Transcribe with Whisper (word timings) and write an .ass caption file.
+    Returns True on success, False to skip captions."""
     if not CAPTIONS:
         return False
     try:
         from faster_whisper import WhisperModel
         model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
-        segments, _ = model.transcribe(str(video_path), vad_filter=True)
-        lines, n = [], 0
+        kwargs = dict(vad_filter=True, word_timestamps=True, beam_size=5,
+                      initial_prompt=WHISPER_PROMPT,
+                      condition_on_previous_text=False)
+        if WHISPER_LANGUAGE:
+            kwargs["language"] = WHISPER_LANGUAGE
+        segments, info = model.transcribe(str(video_path), **kwargs)
+        words = []
         for seg in segments:
-            text = seg.text.strip()
-            if not text:
-                continue
-            n += 1
-            lines.append(f"{n}\n{srt_time(seg.start)} --> {srt_time(seg.end)}\n{text}\n")
-        if not n:
-            return False
-        Path(srt_path).write_text("\n".join(lines), encoding="utf-8")
-        return True
+            for w in (seg.words or []):
+                text = w.word.strip()
+                if text:
+                    words.append((w.start, w.end, text))
+        log(f"  captions: {len(words)} words, language {getattr(info, 'language', '?')}")
+        return build_ass(words, ass_path)
     except Exception as e:
         log(f"  captions skipped: {type(e).__name__}: {e}")
         return False
@@ -199,10 +270,12 @@ def build_video(src, out, credit, srt=None):
                   "fontsize=46:fontcolor=white:borderw=4:bordercolor=black:"
                   "x=(w-text_w)/2:y=150[v1]")
         last = "v1"
-    if srt:
-        # SRT captions are laid out on a small 384x288 grid, so these numbers are
-        # not pixels. On the 1080x1920 video, 1 unit is about 6.7 pixels:
-        # FontSize 10 ~ 67px text, MarginV 65 ~ 430px up from the bottom.
+    if srt and Path(srt).suffix == ".ass":
+        # the .ass file carries its own 1080x1920 pixel style
+        chain += f";[{last}]subtitles={Path(srt).name}[v2]"
+        last = "v2"
+    elif srt:
+        # plain .srt fallback: its numbers sit on a small 384x288 grid (1 unit ~ 6.7px)
         style = ("FontName=DejaVu Sans,Bold=1,FontSize=10,PrimaryColour=&H00FFFFFF,"
                  "OutlineColour=&H00000000,BorderStyle=1,Outline=1,Shadow=0,"
                  "Alignment=2,MarginV=65,MarginL=9,MarginR=9")
@@ -325,7 +398,7 @@ def main():
         log(f"- {clip['id']} ({int(clip['views'])} views) {clip['title']}")
         try:
             with tempfile.TemporaryDirectory() as d:
-                src, srt, out = Path(d, "in.mp4"), Path(d, "captions.srt"), Path(d, "out.mp4")
+                src, srt, out = Path(d, "in.mp4"), Path(d, "captions.ass"), Path(d, "out.mp4")
                 download(clip["media"], src)
                 has_srt = transcribe(src, srt)
                 build_video(src, out, CREDIT, srt=srt if has_srt else None)
