@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -36,6 +37,8 @@ CAPTIONS = os.environ.get("CAPTIONS", "1") == "1"
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "base")
 DRY_RUN = os.environ.get("DRY_RUN", "0") == "1"          # build but don't send
 STATE_FILE = Path(os.environ.get("STATE_FILE", "seen.json"))
+QUEUE_FILE = Path(os.environ.get("QUEUE_FILE", "queue.json"))
+WINDOW_MINUTES = int(os.environ.get("WINDOW_MINUTES", "30"))  # time to reject
 TG_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TG_CHAT = os.environ.get("TELEGRAM_CHAT_ID", "")
 ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -208,8 +211,10 @@ def build_video(src, out, credit, srt=None):
 
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", src.name,
            "-filter_complex", chain, "-map", f"[{last}]", "-map", "0:a?",
-           "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-           "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+           # bitrate cap keeps a 60s video under ~19MB, the most a bot can fetch back later
+           "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+           "-maxrate", "2500k", "-bufsize", "5000k",
+           "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
            "-movflags", "+faststart", "-t", "60", str(out)]
     subprocess.run(cmd, check=True, cwd=work, timeout=600)
 
@@ -249,6 +254,7 @@ def tg(method, **kw):
     r = requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/{method}",
                       timeout=180, **kw)
     r.raise_for_status()
+    return r.json()
 
 
 def notify(text):
@@ -259,12 +265,34 @@ def notify(text):
             log(f"telegram notify failed: {e}")
 
 
-def send_video(path, title, desc):
-    caption = f"{title}\n\n{desc}"[:1000]
+def send_video(path, title, desc, clip_id):
+    """Send the video with a Reject button. Returns (message_id, file_id)."""
+    note = (f"\n\nIt posts to YouTube about {WINDOW_MINUTES} minutes after this "
+            f"message unless you tap Reject.")
+    caption = f"{title}\n\n{desc}"[:1000 - len(note)] + note
+    markup = json.dumps({"inline_keyboard": [[
+        {"text": "Reject (do not post)", "callback_data": f"rej:{clip_id}"}]]})
     with open(path, "rb") as f:
-        tg("sendVideo", data={"chat_id": TG_CHAT, "caption": caption,
-                              "supports_streaming": "true"},
-           files={"video": f})
+        res = tg("sendVideo", data={"chat_id": TG_CHAT, "caption": caption,
+                                    "supports_streaming": "true",
+                                    "reply_markup": markup},
+                 files={"video": f})["result"]
+    return res["message_id"], res["video"]["file_id"]
+
+
+# ------------------------------------------------------------------ queue
+def load_queue():
+    try:
+        q = json.loads(QUEUE_FILE.read_text())
+        q.setdefault("items", [])
+        return q
+    except Exception:
+        return {"items": []}
+
+
+def save_queue(q):
+    q["items"] = q["items"][-100:]  # keep the file small
+    QUEUE_FILE.write_text(json.dumps(q, indent=1))
 
 
 # ------------------------------------------------------------------- main
@@ -307,8 +335,14 @@ def main():
                     keep.write_bytes(out.read_bytes())
                     log(f"  dry run saved {keep}")
                 else:
-                    send_video(out, title, desc)
+                    message_id, file_id = send_video(out, title, desc, clip["id"])
                     log("  sent to Telegram")
+                    q = load_queue()
+                    q["items"].append({
+                        "id": clip["id"], "title": title, "description": desc,
+                        "message_id": message_id, "file_id": file_id,
+                        "sent_at": int(time.time()), "status": "pending"})
+                    save_queue(q)
             seen.add(clip["id"])
             save_seen(seen)
         except Exception as e:

@@ -1,45 +1,51 @@
-# Peller Kick clip robot (Stage 1)
+# Peller Kick clip robot
 
-Every 3 hours, on GitHub's free servers, this robot:
+## What it does
 
-1. reads Peller's recent clips from Kick and picks the 2 most-viewed new ones
-2. turns each into a 9:16 vertical video with his name on top and captions at the bottom
-3. writes a title and description that credit him
-4. sends the finished video to your Telegram
+**Clip robot** (`clips.yml`, every 5 hours, up to 2 clips per run)
+1. reads Peller's recent Kick clips and picks the 2 most-viewed new ones
+2. makes a 9:16 video with his name on top and captions at the bottom
+3. sends it to your Telegram with a **Reject** button
 
-You post it yourself for now. Stage 2 adds the 2-hour "reject window" and automatic YouTube upload.
+**Publisher** (`publish.yml`, 35 and 55 minutes after each clip run)
+1. checks Telegram for Reject taps
+2. rejected clips are dropped
+3. clips older than 30 minutes that you did not reject are uploaded to YouTube
+4. you get a Telegram message with the link
 
-## Setup (about 10 minutes)
+## Secrets (Settings > Secrets and variables > Actions)
 
-1. Create a new GitHub repository (private is fine) and upload everything in this folder,
-   including the hidden `.github` folder.
-2. In the repo go to **Settings > Secrets and variables > Actions > New repository secret**
-   and add:
-   - `TELEGRAM_BOT_TOKEN` - your bot token (the same bot as Ubuntu News works)
-   - `TELEGRAM_CHAT_ID` - your chat ID (the same one works)
-   - `ANTHROPIC_API_KEY` - optional. With it, Claude writes better titles. Without it, the robot uses the Kick clip title.
-3. Open the **Actions** tab, choose **Kick clip robot**, press **Run workflow**.
+| Secret | What |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | token of a bot used ONLY by this robot (see below) |
+| `TELEGRAM_CHAT_ID` | your chat ID (same number as before) |
+| `ANTHROPIC_API_KEY` | optional, better titles |
+| `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` | YouTube upload. Get them with `get_youtube_token.py` |
 
-## First run: this is the real test
+### Use a separate Telegram bot
 
-I could not reach Kick from where I built this, so the first run answers one question:
-does Kick let GitHub's servers read clips?
+The publisher reads your Reject taps from the bot. If another robot (like Ubuntu News)
+reads from the same bot, they steal each other's taps. Make a new bot with @BotFather,
+put its token in `TELEGRAM_BOT_TOKEN`, then open the new bot in Telegram and press **Start**.
 
-- **Works:** a video arrives in your Telegram within a few minutes.
-- **Blocked:** you get a Telegram message saying Kick could not be read. Tell me and I will switch to the backup route (clips from the streamer's YouTube channel or a proxy).
+### YouTube
 
-## Settings (edit in `.github/workflows/clips.yml`)
+1. Create a Google Cloud project, turn on **YouTube Data API v3**, make an OAuth
+   "Desktop app" client, and download it as `client_secret.json`.
+2. On your computer: `pip install google-auth-oauthlib`, then
+   `python get_youtube_token.py client_secret.json`. Sign in with the Google account
+   that owns your channel. Copy the three printed values into the `YT_` secrets.
 
-| Setting | Default | Meaning |
-|---|---|---|
-| `KICK_CHANNEL` | `peller` | the name in `kick.com/<name>`. Check this is right for Peller. |
-| `CREDIT_NAME` | `Peller` | name shown on the video |
-| `MAX_PER_RUN` | 2 | videos per run (add under `env:` to change) |
-| `CAPTIONS` | 1 | set to 0 to skip captions |
-| `DRY_RUN` | 0 | set to 1 to build videos without sending |
+Until the `YT_` secrets exist, clips are sent to Telegram but never posted.
 
-## Notes
+## Limits to know about
 
-- Captions use Whisper. It is good with English and weaker with Nigerian Pidgin, Yoruba and slang, so check captions before posting.
-- Before you post anything, send Peller's team a short message saying you run a clips channel and will credit him in every video.
-- `seen.json` is how the robot remembers which clips it already used. Do not delete it.
+- **Private uploads:** new Google Cloud projects that have not passed Google's API audit
+  can only upload videos as private. If your uploads come out private, you can switch them
+  to public by hand in YouTube Studio, or apply for the audit.
+- **Daily quota:** the default YouTube quota allows about 6 uploads a day. The robot
+  makes up to 10 clips a day, so it stops at `MAX_UPLOADS_PER_DAY` (6) and tells you
+  which clips it skipped.
+- **Time:** 5-hour runs happen at 00, 05, 10, 15, 20 UTC, which is 01, 06, 11, 16, 21 in Nigeria.
+- **Captions** use Whisper: good for English, weaker for Pidgin, Yoruba and slang.
+- Send Peller's team a message before posting, and credit him (the robot already does).
