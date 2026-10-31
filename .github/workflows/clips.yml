@@ -2,7 +2,7 @@ name: Kick clip robot
 
 on:
   schedule:
-    - cron: "0 */3 * * *"
+    - cron: "0 */5 * * *"
   workflow_dispatch:
 
 permissions:
@@ -35,12 +35,14 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           KICK_CHANNEL: peller
           CREDIT_NAME: Peller
+          MAX_PER_RUN: "2"
+          WINDOW_MINUTES: "30"
         run: python clipbot.py
 
-      - name: Remember which clips were used
+      - name: Remember used clips and the waiting queue
         if: always()
         run: |
           git config user.name "clip-robot"
           git config user.email "clip-robot@users.noreply.github.com"
-          git add seen.json || true
-          git diff --cached --quiet || (git commit -m "update used clips" && git push)
+          git add seen.json queue.json || true
+          git diff --cached --quiet || (git commit -m "update used clips" && git pull --rebase && git push)
