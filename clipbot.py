@@ -32,7 +32,7 @@ CHANNEL = os.environ.get("KICK_CHANNEL", "peller")       # kick.com/<this>
 CREDIT = os.environ.get("CREDIT_NAME", "Peller")         # name shown in video
 MAX_PER_RUN = int(os.environ.get("MAX_PER_RUN", "2"))    # videos per run
 MIN_SECONDS = int(os.environ.get("MIN_SECONDS", "12"))   # skip tiny clips
-MAX_AGE_HOURS = int(os.environ.get("MAX_AGE_HOURS", "48"))
+MAX_AGE_HOURS = int(os.environ.get("MAX_AGE_HOURS", "168"))  # look back one week
 CAPTIONS = os.environ.get("CAPTIONS", "1") == "1"
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")   # base < small < medium
 WHISPER_LANGUAGE = os.environ.get("WHISPER_LANGUAGE", "en")  # "" = auto-detect
@@ -394,6 +394,11 @@ def main():
     seen = load_seen()
     chosen = pick_clips(raw, seen)
     log(f"{len(chosen)} new clip(s) to process")
+    if not chosen and os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch":
+        # only for runs you start by hand, so the 5-hourly runs stay quiet
+        notify(f"Clip robot ran: Kick returned {len(raw)} clips for '{CHANNEL}' but none "
+               f"are new (already sent, older than {MAX_AGE_HOURS} hours, or shorter "
+               f"than {MIN_SECONDS} seconds).")
     for clip in chosen:
         log(f"- {clip['id']} ({int(clip['views'])} views) {clip['title']}")
         try:
