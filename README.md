@@ -13,6 +13,28 @@
 3. clips older than 30 minutes that you did not reject are uploaded to YouTube
 4. you get a Telegram message with the link
 
+**Live catcher** (`live.yml`, `livebot.py`) - catches moments while Peller is streaming
+1. a quick check asks Kick if he is live (nothing else runs if he is not)
+2. while live it records the stream in 6 second pieces and listens to the volume
+3. when the last ~12 seconds are much louder than normal (shouting, laughing, hype) it
+   cuts about 30 seconds before and 25 seconds after that moment
+4. the cut goes through the same captions, vertical video, Telegram Reject button and
+   YouTube upload as the normal clips. Moments with no speech are skipped
+5. 7 minutes minimum between clips, at most 4 clips per run
+6. after each clip's 30 minute window it starts the publisher right away
+
+Tuning (environment variables in `live.yml`): `SPIKE_DB` (lower = catches more, default 7),
+`MIN_LOUD_DB`, `COOLDOWN_SECONDS`, `MAX_LIVE_CLIPS`, `PRE_SEGS` / `POST_SEGS`.
+Test without a stream: `SOURCE_URL=video.mp4 DRY_RUN=1 LIVE_REQUIRE_SPEECH=0 python livebot.py`.
+
+### Live catcher: GitHub minutes
+
+The timer is OFF in `live.yml` on purpose. A private repo gets 2000 free Actions minutes a
+month. Checking every 15 minutes uses about 2900 minutes a month by itself, and watching a
+stream uses 1 minute per minute. When the minutes run out ALL robots here stop until next
+month. A public repo has unlimited minutes (secrets stay secret, but `queue.json` and the
+code become visible). Alternative: run `livebot.py` on any always-on computer instead.
+
 ## Secrets (Settings > Secrets and variables > Actions)
 
 | Secret | What |

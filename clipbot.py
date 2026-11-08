@@ -61,6 +61,9 @@ FONT_CANDIDATES = [
 ]
 
 
+LAST_TRANSCRIPT = ""
+
+
 def log(*a):
     print(*a, flush=True)
 
@@ -236,6 +239,8 @@ def transcribe(video_path, ass_path):
                 if text:
                     words.append((w.start, w.end, text))
         log(f"  captions: {len(words)} words, language {getattr(info, 'language', '?')}")
+        global LAST_TRANSCRIPT
+        LAST_TRANSCRIPT = " ".join(w[2] for w in words)  # used by the live catcher for titles
         return build_ass(words, ass_path)
     except Exception as e:
         log(f"  captions skipped: {type(e).__name__}: {e}")
