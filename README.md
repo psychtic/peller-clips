@@ -29,11 +29,7 @@ Test without a stream: `SOURCE_URL=video.mp4 DRY_RUN=1 LIVE_REQUIRE_SPEECH=0 pyt
 
 ### Live catcher: GitHub minutes
 
-The timer is OFF in `live.yml` on purpose. A private repo gets 2000 free Actions minutes a
-month. Checking every 15 minutes uses about 2900 minutes a month by itself, and watching a
-stream uses 1 minute per minute. When the minutes run out ALL robots here stop until next
-month. A public repo has unlimited minutes (secrets stay secret, but `queue.json` and the
-code become visible). Alternative: run `livebot.py` on any always-on computer instead.
+The timer is ON (every 15 minutes). The repo is public, so Actions minutes are unlimited. If you ever make the repo private again, turn the timer off in `live.yml` first: a private repo has only 2000 free minutes a month and running out stops ALL robots.
 
 ## Secrets (Settings > Secrets and variables > Actions)
 

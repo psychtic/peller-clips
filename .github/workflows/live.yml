@@ -1,12 +1,10 @@
 name: Live clip catcher
 
-# Starts only when you tap "Run workflow" until you switch the timer on.
-# To switch it on, remove the # at the start of the two "schedule" lines below.
-# READ README.md ("Live catcher: GitHub minutes") first: a private repo has only
-# 2000 free minutes a month, and running out also stops the other robots.
+# Every 15 minutes it checks if Peller is live. If yes, it listens for big moments.
+# The repo is public, so Actions minutes are free and unlimited.
 on:
-#  schedule:
-#    - cron: "*/15 * * * *"
+  schedule:
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 permissions:
