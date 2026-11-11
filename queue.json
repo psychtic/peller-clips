@@ -168,7 +168,9 @@
    "message_id": 34,
    "file_id": "BAACAgQAAxkDAAMiavRc9nE-YIei2vWpuiKOL_VQJ3gAAjUiAAK9t6hTVEUcGY_rs2o9BA",
    "sent_at": 1794399478,
-   "status": "pending"
+   "status": "published",
+   "youtube_id": "G9NvVtzmXO0",
+   "published_at": 1794420030
   }
  ],
  "warned_no_youtube": true
