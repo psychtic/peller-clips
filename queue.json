@@ -325,7 +325,9 @@
    "message_id": 66,
    "file_id": "BAACAgQAAxkDAANCavmkA-tI4pZwdDS1hUpjaTt6qgUAAvAiAAK7yMhTI4IinTdh0ro9BA",
    "sent_at": 1794745348,
-   "status": "pending"
+   "status": "published",
+   "youtube_id": "A1oXVkltAIU",
+   "published_at": 1794763341
   },
   {
    "id": "clip_01M7AZNGTE07R2TNX5KAPAXP58",
@@ -334,7 +336,9 @@
    "message_id": 67,
    "file_id": "BAACAgQAAxkDAANDavmkYJFiOHDw-kmq2wvqL2us0Q8AAvEiAAK7yMhTF5IRL6e_KiI9BA",
    "sent_at": 1794745441,
-   "status": "pending"
+   "status": "published",
+   "youtube_id": "dLx1lq0yAOk",
+   "published_at": 1794763341
   }
  ],
  "warned_no_youtube": true
