@@ -267,7 +267,7 @@
    "message_id": 53,
    "file_id": "BAACAgQAAxkDAAM1avi3t4BW8n683LQJEtx23GeIjkQAAsIhAAIqccBTqLPj0A7YDfo9BA",
    "sent_at": 1794684856,
-   "status": "pending"
+   "status": "skipped_daily_limit"
   },
   {
    "id": "clip_01M7B04BCZHN9QBF54T62XVZM7",
@@ -276,7 +276,7 @@
    "message_id": 54,
    "file_id": "BAACAgQAAxkDAAM2avi39OmQ29bsVjItPJONw2cPUh4AAsMhAAIqccBTu15LoqXe1Xc9BA",
    "sent_at": 1794684917,
-   "status": "pending"
+   "status": "skipped_daily_limit"
   },
   {
    "id": "clip_01M7DX6T79M2M1J27S96HWKJ86",
@@ -285,7 +285,7 @@
    "message_id": 56,
    "file_id": "BAACAgQAAxkDAAM4avjux0GuO7QuCc0P0C4TU5OcInYAAj4iAAK7yMhT_MgMmNxKYWQ9BA",
    "sent_at": 1794698952,
-   "status": "pending"
+   "status": "skipped_daily_limit"
   },
   {
    "id": "clip_01M7DYBJTS670XE9JXX4N8APYG",
@@ -294,7 +294,7 @@
    "message_id": 57,
    "file_id": "BAACAgQAAxkDAAM5avju7vql7GVKBSxGGSPDMBvgzKcAAj8iAAK7yMhTVo8Bg7brhA09BA",
    "sent_at": 1794698991,
-   "status": "pending"
+   "status": "skipped_daily_limit"
   }
  ],
  "warned_no_youtube": true
