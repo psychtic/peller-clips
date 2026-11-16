@@ -347,7 +347,9 @@
    "message_id": 70,
    "file_id": "BAACAgQAAxkDAANGavp5BDGlfRR-3t2_Y35vDQsZef4AAqUeAAK7yNBT74H6P2u4G3k9BA",
    "sent_at": 1794799876,
-   "status": "pending"
+   "status": "published",
+   "youtube_id": "UQYpuv9sunI",
+   "published_at": 1794813069
   }
  ],
  "warned_no_youtube": true
