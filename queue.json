@@ -402,7 +402,9 @@
    "message_id": 81,
    "file_id": "BAACAgQAAxkDAANRav2pVuS6plhmlve3mYe305kq0OsAAr4kAAIKdelTgpZpR6UcrS09BA",
    "sent_at": 1795008855,
-   "status": "pending"
+   "status": "published",
+   "youtube_id": "LbBp0nU3bB4",
+   "published_at": 1795028416
   }
  ],
  "warned_no_youtube": true
